@@ -18,8 +18,16 @@ logging.basicConfig(
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['SECRET_KEY'] = 'supersecretkey'  # Necessário para usar flash messages
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+app.config['SECRET_KEY'] = 'supersecretkey'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limite de 16MB para uploads
+
+# Criar diretório uploads se não existir
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    except Exception as e:
+        logging.error(f"Erro ao criar diretório uploads: {e}")
+        raise
 
 # Lista para armazenar os arquivos enviados e os meses associados
 files_data = []
@@ -42,26 +50,36 @@ def index():
         excel_month = request.form.get('excel_month')
         excel_year = request.form.get('excel_year', '2025')
 
+        if not files:
+            flash('Nenhum arquivo selecionado.')
+            return redirect(request.url)
+
         for file in files:
             if file and file.filename:
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-                file_type = "CSV" if filename.endswith('.csv') else "Excel"
-                if file_type == "CSV":
-                    month_name = csv_month if csv_month in MONTHS else "Janeiro"
-                    files_data.append((file_path, file_type, None, None, month_name))
-                else:
-                    try:
-                        month = int(excel_month)
-                        if not 1 <= month <= 12:
-                            raise ValueError
-                        year = int(excel_year) if excel_year else 2025
-                        month_name = MONTHS[month - 1]
-                        files_data.append((file_path, file_type, month, year, month_name))
-                    except ValueError:
-                        flash('Mês ou ano inválido para o arquivo Excel.')
-                        return redirect(request.url)
+                try:
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(file_path)
+                    file_type = "CSV" if filename.endswith('.csv') else "Excel"
+                    if file_type == "CSV":
+                        month_name = csv_month if csv_month in MONTHS else "Janeiro"
+                        files_data.append((file_path, file_type, None, None, month_name))
+                    else:
+                        try:
+                            month = int(excel_month)
+                            if not 1 <= month <= 12:
+                                raise ValueError
+                            year = int(excel_year) if excel_year.isdigit() else 2025
+                            month_name = MONTHS[month - 1]
+                            files_data.append((file_path, file_type, month, year, month_name))
+                        except ValueError:
+                            flash('Mês ou ano inválido para o arquivo Excel.')
+                            os.remove(file_path) if os.path.exists(file_path) else None
+                            return redirect(request.url)
+                except Exception as e:
+                    flash(f"Erro ao processar o arquivo {filename}: {str(e)}")
+                    os.remove(file_path) if os.path.exists(file_path) else None
+                    return redirect(request.url)
 
         return render_template('index.html', files=files_data, months=MONTHS)
 
@@ -74,7 +92,10 @@ def remove_file(index):
     if 0 <= index < len(files_data):
         file_path = files_data[index][0]
         if os.path.exists(file_path):
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                logging.error(f"Erro ao remover arquivo {file_path}: {e}")
         files_data.pop(index)
     return redirect(url_for('index'))
 
@@ -174,6 +195,15 @@ def combine_files():
     output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'combined_output.csv')
     final_df.to_csv(output_path, index=False, encoding="utf-8")
 
+    # Limpar arquivos temporários após o processamento
+    for file_path, _, _, _, _ in files_data:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                logging.error(f"Erro ao remover arquivo temporário {file_path}: {e}")
+
+    files_data = []  # Limpar a lista após o download
     return send_file(output_path, as_attachment=True, download_name='combined_output.csv')
 
 def extract_day_from_sheet_name(sheet_name):
