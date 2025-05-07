@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel to CSV Converter (Web)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .remove-btn {
+            background-color: #f44336;
+        }
+        .remove-btn:hover {
+            background-color: #da190b;
+        }
+        .file-list {
+            margin-top: 20px;
+        }
+        .file-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-messages div {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Excel to CSV Converter (Web)</h1>
+
+        <!-- Exibir mensagens flash -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Adicionar Arquivos (CSV ou Excel):</label>
+                <input type="file" name="files[]" multiple accept=".csv,.xlsx,.xls">
+            </div>
+            <div class="form-group">
+                <label>Mês (para CSV):</label>
+                <select name="csv_month">
+                    {% for month in months %}
+                        <option value="{{ month }}">{{ month }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mês (para Excel, 1-12):</label>
+                <select name="excel_month">
+                    {% for i in range(1, 13) %}
+                        <option value="{{ i }}">{{ months[i-1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ano (para Excel):</label>
+                <input type="text" name="excel_year" value="2025">
+            </div>
+            <button type="submit">Adicionar Arquivos</button>
+        </form>
+
+        <!-- Lista de arquivos adicionados -->
+        <div class="file-list">
+            <h2>Arquivos Selecionados:</h2>
+            {% if files %}
+                {% for i, (file_path, file_type, month, year, month_name) in enumerate(files) %}
+                    <div class="file-item">
+                        {{ file_type }}: {{ file_path.split('/')[-1] }} (Mês: {{ month_name }}{% if file_type == "Excel" %}, Ano: {{ year }}{% endif %})
+                        <a href="{{ url_for('remove_file', index=i) }}"><button class="remove-btn">Remover</button></a>
+                    </div>
+                {% endfor %}
+                <form method="POST" action="{{ url_for('combine_files') }}">
+                    <button type="submit">Combinar e Baixar CSV</button>
+                </form>
+            {% else %}
+                <p>Nenhum arquivo adicionado.</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
