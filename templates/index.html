@@ -61,6 +61,9 @@
         .file-item {
             padding: 10px;
             border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .flash-messages {
             margin-bottom: 20px;
@@ -125,7 +128,7 @@
             {% if files %}
                 {% for i, (file_path, file_type, month, year, month_name) in enumerate(files) %}
                     <div class="file-item">
-                        {{ file_type }}: {{ file_path.split('/')[-1] }} (Mês: {{ month_name }}{% if file_type == "Excel" %}, Ano: {{ year }}{% endif %})
+                        <span>{{ file_type }}: {{ file_path.split('/')[-1] }} (Mês: {{ month_name }}{% if file_type == "Excel" %}, Ano: {{ year }}{% endif %})</span>
                         <a href="{{ url_for('remove_file', index=i) }}"><button class="remove-btn">Remover</button></a>
                     </div>
                 {% endfor %}
